@@ -1,3 +1,3 @@
-number = -?\d+;
-op = [+-/*];
-bin_expr = <right: number>\s*<ope: op>\s*<left: number>;
+number = \d+;
+nat = -?<x: number>;
+txt = 0<t: nat>;

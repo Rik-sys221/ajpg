@@ -34,7 +34,7 @@ public class Parser {
         this.hadError = false;
         this.erros = new ArrayList<>();
         this.grammarPath = grammarPath.toAbsolutePath();
-        this.outputPath = Path.of("src/main/java/parser/ast");
+        this.outputPath = Path.of("src/parser/ast");
     }
     
     public Node parse(String input) throws IOException {
@@ -67,35 +67,57 @@ public class Parser {
             this.rawRules.put(name, regex);
         }
         for (Map.Entry<String, String> entry : rawRules.entrySet()) {
-            String resolved = resolveRegex(entry.getValue());
+            String resolved = resolveRegex(entry.getValue(), false);
+            //System.out.println(resolved);
             rulesMap.put(entry.getKey(), Pattern.compile(resolved));
         }
     }
     
-    private String resolveRegex(String rawRegex) {
-        Pattern refPattern = Pattern.compile("<([^>]+)>");
-        Matcher matcher = refPattern.matcher(rawRegex);
-        StringBuffer sb = new StringBuffer();
-
+    private String resolveRegex(String rawRegex, boolean recursion) {
+        Pattern varPattern = Pattern.compile("<\\s*(\\w+)\\s*:\\s*(\\w+)\\s*>");
+        Matcher matcher = varPattern.matcher(rawRegex);
+        String finalRegex = rawRegex;
         while (matcher.find()) {
+            String varName = matcher.group(1);
+            String ruleName = matcher.group(2);
+            if (!this.rawRules.containsKey(ruleName)) {
+                erros.add(new InvalidRuleReference("Undefined rule: <" + ruleName + ">"));
+                continue;
+            }
+            //System.out.println(replaceRefs("<" + ruleName + ">"));
+            finalRegex = finalRegex.replace(matcher.group(), "(?<" + varName + ">(" + replaceRefs("<" + ruleName + ">") + "))");
+            //System.out.println(finalRegex);
+            finalRegex = resolveRegex(finalRegex, true);
+            //System.out.println(finalRegex);
+            return finalRegex;
+        }
+        if(!recursion)
+        //System.out.println(finalRegex);
+            finalRegex = replaceRefs(finalRegex);
+        //System.out.println(finalRegex);
+        return finalRegex;
+    }
+
+    private String replaceRefs(String rawRegex) {
+        //System.out.println(rawRegex);
+        Pattern refPattern = Pattern.compile("<\\s*(\\w+)\\s*>");
+        Matcher matcher = refPattern.matcher(rawRegex);
+        String finalRegex = rawRegex;
+        while(matcher.find()) {
             String ruleName = matcher.group(1);
+            //System.out.println(ruleName);
 
             if (!this.rawRules.containsKey(ruleName)) {
                 erros.add(new InvalidRuleReference("Undefined rule: <" + ruleName + ">"));
-                matcher.appendReplacement(sb, Matcher.quoteReplacement("<" + ruleName + ">"));
                 continue;
             }
-
-            String replacement = this.rawRules.get(ruleName);
-            replacement = resolveRegex(replacement);
-            matcher.appendReplacement(sb, Matcher.quoteReplacement("(" + replacement + ")"));
+            finalRegex = finalRegex.replace("<" + ruleName + ">", "(" + this.rawRules.get(ruleName) + ")");
+            finalRegex = replaceRefs(finalRegex);
         }
-
-        matcher.appendTail(sb);
-        return sb.toString();
+        return finalRegex;
     }
 
-    public void generateNode(String ruleName) throws IOException {        
+    private void generateNode(String ruleName) throws IOException {        
         Files.createDirectories(outputPath);
         String className = toClassName(ruleName);
         Path filePath = outputPath.resolve(className + ".java");
@@ -117,7 +139,7 @@ public class Parser {
         }
     }
 
-    public Node eval(String[] input) {
+    private Node eval(String[] input) {
         Node root = new Node("ROOT", null);
         for (String part : input) {
             ValidationResult res = validate(part);
@@ -130,7 +152,7 @@ public class Parser {
         return root;
     }
     
-    public ValidationResult validate(String input) {
+    private ValidationResult validate(String input) {
         for (Map.Entry<String, Pattern> entry : rulesMap.entrySet()) {
             Matcher matcher = entry.getValue().matcher(input);
             if (matcher.matches()) {
@@ -146,7 +168,7 @@ public class Parser {
         return ruleName + "Node";
     }
     
-    public Node handle(String errorHeader, Node root) {
+    private Node handle(String errorHeader, Node root) {
         this.hadError = !erros.isEmpty();
         if (this.hadError) {
             System.err.println(errorHeader);
@@ -156,7 +178,7 @@ public class Parser {
         }
         return root;
     }
-    public boolean handle(String errorHeader) {
+    private boolean handle(String errorHeader) {
         this.hadError = !erros.isEmpty();
         if (this.hadError) {
             System.err.println(errorHeader);

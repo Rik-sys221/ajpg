@@ -6,7 +6,7 @@
 
   <groupId>com.rikelmearaujo</groupId>
   <artifactId>ajpg</artifactId>
-  <version>1.0.4</version>
+  <version>1.0.7</version>
   <packaging>jar</packaging>
   <name>ajpg</name>
   <description>Framework parser experimental</description>
