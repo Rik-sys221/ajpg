@@ -12,38 +12,38 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Parser {
-    public static void main(String[] args) throws IOException {
-        Parser parser = new Parser(Path.of("C:/Users/Rikelme/Documents/NetBeansProjects/AJPG/src/main/java/sintax.txt"));
-        //ValidationResult result = parser.validate("4 8 -9");
-        Node root = parser.parse("-5 + 9-7");
-        System.out.println(parser.rulesMap.get("bin_expr").pattern());
-        //System.out.println(result.message());
-        root.childrens.forEach(System.out::println);
-    }
     
     private boolean hadError;
     Map<String, String> rawRules;
     private final Map<String, Pattern> rulesMap;
     private final List<RuleException> erros;
     private final Path grammarPath;
-    private final Path outputDir;
+    private final Path outputPath;
     
+    public Parser(String grammarPath) {
+        this.rawRules  = new LinkedHashMap<>();
+        this.rulesMap  = new LinkedHashMap<>();
+        this.hadError = false;
+        this.erros = new ArrayList<>();
+        this.grammarPath = Path.of(grammarPath).toAbsolutePath();
+        this.outputPath = Path.of("src/parser/ast");
+    }
     public Parser(Path grammarPath) {
         this.rawRules  = new LinkedHashMap<>();
         this.rulesMap  = new LinkedHashMap<>();
         this.hadError = false;
         this.erros = new ArrayList<>();
-        this.grammarPath = grammarPath;
-        this.outputDir = Path.of(System.getProperty("user.dir") + "/src/main/java/com/rikelmearaujo/ajpg/nodes");
+        this.grammarPath = grammarPath.toAbsolutePath();
+        this.outputPath = Path.of("src/main/java/parser/ast");
     }
     
     public Node parse(String input) throws IOException {
         String[] rules = loadGrammar();
         defineRules(rules);
         if(handle("!!! Erros encontrados na definicao das regras:")) return new Node("FAIL", null);
-        /*for (String ruleName : rulesMap.keySet()) {
+        for (String ruleName : rulesMap.keySet()) {
             this.generateNode(ruleName);
-        }*/
+        }
         Node root = eval(input.split("\\s+"));
         return handle("!!! Erros encontrados durante parsing:", root);
     }
@@ -95,15 +95,13 @@ public class Parser {
         return sb.toString();
     }
 
-    
-    /*
     public void generateNode(String ruleName) throws IOException {        
-        Files.createDirectories(outputDir);
+        Files.createDirectories(outputPath);
         String className = toClassName(ruleName);
-        Path filePath = outputDir.resolve(className + ".java");
+        Path filePath = outputPath.resolve(className + ".java");
 
         String content = """
-            package com.rikelmearaujo.ajpg.nodes;
+            package parser.ast;
 
             import com.rikelmearaujo.ajpg.Node;
 
@@ -118,7 +116,6 @@ public class Parser {
             Files.writeString(filePath, content);
         }
     }
-    */
 
     public Node eval(String[] input) {
         Node root = new Node("ROOT", null);

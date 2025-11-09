@@ -7,7 +7,7 @@ public class Node {
 
     String type;
     String value;
-    List<Node> childrens;
+    public List<Node> childrens;
 
     public Node(String type, String value) {
         this.type = type;
