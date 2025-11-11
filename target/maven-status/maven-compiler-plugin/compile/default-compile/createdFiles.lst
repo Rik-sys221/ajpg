@@ -4,4 +4,5 @@ com\rikelmearaujo\ajpg\exceptions\InvalidRuleDeclaration.class
 com\rikelmearaujo\ajpg\Node.class
 com\rikelmearaujo\ajpg\Parser.class
 com\rikelmearaujo\ajpg\exceptions\NoRuleMatches.class
+com\rikelmearaujo\ajpg\exceptions\RecursiveRuleReference.class
 com\rikelmearaujo\ajpg\ValidationResult.class

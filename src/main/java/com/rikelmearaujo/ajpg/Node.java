@@ -5,9 +5,20 @@ import java.util.List;
 
 public class Node {
 
-    String type;
-    String value;
-    public List<Node> childrens;
+    private String type;
+    public String getType() {
+        return type;
+    }
+
+    private String value;
+    public String getValue() {
+        return value;
+    }
+
+    private List<Node> childrens;
+    public List<Node> getChildrens() {
+        return childrens;
+    }
 
     public Node(String type, String value) {
         this.type = type;

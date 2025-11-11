@@ -1,3 +1,2 @@
 number = \d+;
 nat = -?<x: number>;
-txt = 0<t: nat>;

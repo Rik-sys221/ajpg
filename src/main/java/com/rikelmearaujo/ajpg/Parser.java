@@ -8,17 +8,19 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Parser {
     
     private boolean hadError;
-    Map<String, String> rawRules;
+    private final Map<String, String> rawRules;
     private final Map<String, Pattern> rulesMap;
     private final List<RuleException> erros;
     private final Path grammarPath;
     private final Path outputPath;
+    private final Logger logger = Logger.getLogger(getClass().getName());
     
     public Parser(String grammarPath) {
         this.rawRules  = new LinkedHashMap<>();
@@ -50,8 +52,7 @@ public class Parser {
     
     private String[] loadGrammar() throws IOException {
         String content = Files.readString(grammarPath);
-        String[] rules = content.split(";");
-        return rules;
+        return content.split(";");
     }
     
     private void defineRules(String[] rules) {
@@ -67,48 +68,50 @@ public class Parser {
             this.rawRules.put(name, regex);
         }
         for (Map.Entry<String, String> entry : rawRules.entrySet()) {
-            String resolved = resolveRegex(entry.getValue(), false);
-            //System.out.println(resolved);
+            String resolved = resolveRegex(entry.getValue());
             rulesMap.put(entry.getKey(), Pattern.compile(resolved));
         }
     }
-    
-    private String resolveRegex(String rawRegex, boolean recursion) {
+
+    private String resolveRegex(String rawRegex) {
+        return replaceVars(replaceRefs(rawRegex));
+    }
+
+    private String replaceVars(String rawRegex) {
+        //define regex for variable references like <varname: rulename>
         Pattern varPattern = Pattern.compile("<\\s*(\\w+)\\s*:\\s*(\\w+)\\s*>");
         Matcher matcher = varPattern.matcher(rawRegex);
         String finalRegex = rawRegex;
-        while (matcher.find()) {
-            String varName = matcher.group(1);
-            String ruleName = matcher.group(2);
+
+        while(matcher.find()) {
+            String varName = matcher.group(1); //<varname
+            String ruleName = matcher.group(2); //rulename>
             if (!this.rawRules.containsKey(ruleName)) {
                 erros.add(new InvalidRuleReference("Undefined rule: <" + ruleName + ">"));
                 continue;
             }
-            //System.out.println(replaceRefs("<" + ruleName + ">"));
+            if(this.rulesMap.containsKey(ruleName)) {
+                finalRegex = finalRegex.replace(matcher.group(), "(?<" + varName + ">(" + this.rulesMap.get(ruleName).pattern() + "))");
+                continue;
+            }
             finalRegex = finalRegex.replace(matcher.group(), "(?<" + varName + ">(" + replaceRefs("<" + ruleName + ">") + "))");
-            //System.out.println(finalRegex);
-            finalRegex = resolveRegex(finalRegex, true);
-            //System.out.println(finalRegex);
-            return finalRegex;
         }
-        if(!recursion)
-        //System.out.println(finalRegex);
-            finalRegex = replaceRefs(finalRegex);
-        //System.out.println(finalRegex);
+
         return finalRegex;
     }
 
     private String replaceRefs(String rawRegex) {
-        //System.out.println(rawRegex);
         Pattern refPattern = Pattern.compile("<\\s*(\\w+)\\s*>");
         Matcher matcher = refPattern.matcher(rawRegex);
         String finalRegex = rawRegex;
         while(matcher.find()) {
             String ruleName = matcher.group(1);
-            //System.out.println(ruleName);
-
             if (!this.rawRules.containsKey(ruleName)) {
                 erros.add(new InvalidRuleReference("Undefined rule: <" + ruleName + ">"));
+                continue;
+            }
+            if(this.rulesMap.containsKey(ruleName)) {
+                finalRegex = finalRegex.replace("<" + ruleName + ">", this.rulesMap.get(ruleName).pattern());
                 continue;
             }
             finalRegex = finalRegex.replace("<" + ruleName + ">", "(" + this.rawRules.get(ruleName) + ")");
@@ -171,8 +174,8 @@ public class Parser {
     private Node handle(String errorHeader, Node root) {
         this.hadError = !erros.isEmpty();
         if (this.hadError) {
-            System.err.println(errorHeader);
-            erros.forEach(e -> System.err.println(" - " + e.getMessage()));
+            logger.severe(errorHeader);
+            erros.forEach(e -> logger.severe(" - " + e.getMessage()));
             erros.clear();
             return new Node("FAIL", null);
         }
@@ -181,8 +184,8 @@ public class Parser {
     private boolean handle(String errorHeader) {
         this.hadError = !erros.isEmpty();
         if (this.hadError) {
-            System.err.println(errorHeader);
-            erros.forEach(e -> System.err.println(" - " + e.getMessage()));
+            logger.severe(errorHeader);
+            erros.forEach(e -> logger.severe(" - " + e.getMessage()));
             erros.clear();
         }
         return this.hadError;
