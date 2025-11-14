@@ -1,14 +1,15 @@
 package com.rikelmearaujo.ajpg;
 
 import com.rikelmearaujo.ajpg.exceptions.*;
-import java.io.IOException;
-import java.nio.file.Files;
+import dev.rikelmearaujo.devtools.data.Node;
+import dev.rikelmearaujo.devtools.io.FileUtils;
+import dev.rikelmearaujo.devtools.core.Logger;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,14 +21,13 @@ public class Parser {
     private final List<RuleException> erros;
     private final Path grammarPath;
     private final Path outputPath;
-    private final Logger logger = Logger.getLogger(getClass().getName());
     
     public Parser(String grammarPath) {
         this.rawRules  = new LinkedHashMap<>();
         this.rulesMap  = new LinkedHashMap<>();
         this.hadError = false;
         this.erros = new ArrayList<>();
-        this.grammarPath = Path.of(grammarPath).toAbsolutePath();
+        this.grammarPath = Path.of(grammarPath);
         this.outputPath = Path.of("src/parser/ast");
     }
     public Parser(Path grammarPath) {
@@ -38,20 +38,20 @@ public class Parser {
         this.grammarPath = grammarPath.toAbsolutePath();
         this.outputPath = Path.of("src/parser/ast");
     }
-    
-    public Node parse(String input) throws IOException {
+
+    public Node<String, String> parse(String input) {
         String[] rules = loadGrammar();
         defineRules(rules);
-        if(handle("!!! Erros encontrados na definicao das regras:")) return new Node("FAIL", null);
+        if(handle("!!! Erros encontrados na definicao das regras:")) return new Node<>("FAIL", null);
         for (String ruleName : rulesMap.keySet()) {
             this.generateNode(ruleName);
         }
-        Node root = eval(input.split("\\s+"));
+        Node<String, String> root = eval(input.split("\\s+"));
         return handle("!!! Erros encontrados durante parsing:", root);
     }
     
-    private String[] loadGrammar() throws IOException {
-        String content = Files.readString(grammarPath);
+    private String[] loadGrammar() {
+        String content = FileUtils.readText(grammarPath);
         return content.split(";");
     }
     
@@ -120,8 +120,8 @@ public class Parser {
         return finalRegex;
     }
 
-    private void generateNode(String ruleName) throws IOException {        
-        Files.createDirectories(outputPath);
+    private void generateNode(String ruleName) {        
+        FileUtils.mkdir(outputPath);
         String className = toClassName(ruleName);
         Path filePath = outputPath.resolve(className + ".java");
 
@@ -137,17 +137,15 @@ public class Parser {
             }
             """.formatted(className, className, ruleName);
 
-        if (!Files.exists(filePath)) {
-            Files.writeString(filePath, content);
-        }
+        FileUtils.writeText(filePath, content);
     }
 
-    private Node eval(String[] input) {
-        Node root = new Node("ROOT", null);
+    private Node<String, String> eval(String[] input) {
+        Node<String, String> root = new Node<>("ROOT", null);
         for (String part : input) {
             ValidationResult res = validate(part);
             if(res.success()) {
-                root.add(new Node(res.ruleName(), part));
+                root.add(new Node<>(res.ruleName(), part));
             } else {
                 this.erros.add(new NoRuleMatches(res.message()));
             }
@@ -171,21 +169,21 @@ public class Parser {
         return ruleName + "Node";
     }
     
-    private Node handle(String errorHeader, Node root) {
+    private Node<String, String> handle(String errorHeader, Node<String, String> root) {
         this.hadError = !erros.isEmpty();
         if (this.hadError) {
-            logger.severe(errorHeader);
-            erros.forEach(e -> logger.severe(" - " + e.getMessage()));
+            Logger.error(errorHeader);
+            erros.forEach(e -> Logger.error(" - " + e.getMessage()));
             erros.clear();
-            return new Node("FAIL", null);
+            return new Node<>("FAIL", null);
         }
         return root;
     }
     private boolean handle(String errorHeader) {
         this.hadError = !erros.isEmpty();
         if (this.hadError) {
-            logger.severe(errorHeader);
-            erros.forEach(e -> logger.severe(" - " + e.getMessage()));
+            Logger.error(errorHeader);
+            erros.forEach(e -> Logger.error(" - " + e.getMessage()));
             erros.clear();
         }
         return this.hadError;
